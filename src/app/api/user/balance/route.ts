@@ -1,5 +1,3 @@
-import { NextResponse } from 'next/server';
-import { withTransaction } from '@/lib/db/client';
 import { requireAuth } from '@/lib/auth';
 import { getBalance } from '@/lib/billing/consume';
 import { ok, fail } from '@/lib/api/response';
@@ -17,12 +15,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const balance = await withTransaction(async (tx) => {
-      // getBalance 内部已经使用 withTransaction，这里外层再包一层可能导致嵌套事务问题
-      // 直接调用 getBalance 即可
-      return getBalance(user.id);
-    });
-
+    // getBalance 内部已开启事务，此处不再嵌套
+    const balance = await getBalance(user.id);
     return ok(balance);
   } catch (err) {
     const message = err instanceof Error ? err.message : '查询余额失败';

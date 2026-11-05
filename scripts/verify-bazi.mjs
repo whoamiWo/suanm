@@ -1,4 +1,4 @@
-import { calculateBazi, toBaziText, toBaziJson } from 'taibu-core/bazi';
+import { calculateBazi, toBaziText } from 'taibu-core/bazi';
 
 const chart = calculateBazi({
   gender: 'male',

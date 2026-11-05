@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { METHODS } from '@/lib/chart/methods-meta';
 
@@ -62,11 +62,6 @@ export function BirthForm({ defaultMethod = 'bazi' }: BirthFormProps) {
   const [useTrueSolar, setUseTrueSolar] = useState(searchParams.get('ts') === '1');
   const [longitude, setLongitude] = useState(searchParams.get('lon') ?? '');
 
-  useEffect(() => {
-    // 方法切换后重置占卜标志
-    setUnknownHour(false);
-  }, [method]);
-
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const params = new URLSearchParams();
@@ -117,7 +112,14 @@ export function BirthForm({ defaultMethod = 'bazi' }: BirthFormProps) {
         </label>
         <select
           value={method}
-          onChange={(e) => setMethod(e.target.value)}
+          onChange={(e) => {
+            const next = e.target.value;
+            setMethod(next);
+            // 切换到占卜类方法时清除出生时辰相关状态
+            if (DIVINATION_METHODS.some((m) => m.id === next)) {
+              setUnknownHour(false);
+            }
+          }}
           className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm focus:border-neutral-900 focus:outline-none"
         >
           {METHODS.map((m) => (

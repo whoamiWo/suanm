@@ -11,6 +11,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { authUser } from './auth';
 
 /**
  * 计费相关表。
@@ -23,7 +24,9 @@ import {
  */
 
 export const billingAccounts = pgTable('billing_accounts', {
-  userId: uuid('user_id').primaryKey(),
+  userId: uuid('user_id')
+    .primaryKey()
+    .references(() => authUser.id, { onDelete: 'cascade' }),
   /** 钱包余额，单位 micros */
   balanceMicros: bigint('balance_micros', { mode: 'number' }).notNull().default(0),
   /** 扣费顺序：subscription 优先还是 wallet 优先 */
@@ -37,7 +40,9 @@ export const billingLedger = pgTable(
   'billing_ledger',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id').notNull(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => authUser.id, { onDelete: 'cascade' }),
     kind: text('kind', {
       enum: ['usage', 'refund', 'topup', 'subscription', 'redeem', 'adjust'],
     }).notNull(),
@@ -110,7 +115,9 @@ export const userSubscriptions = pgTable(
   'user_subscriptions',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id').notNull().references(() => billingAccounts.userId),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => authUser.id, { onDelete: 'cascade' }),
     planId: uuid('plan_id').references(() => subscriptionPlans.id, { onDelete: 'set null' }),
     title: text('title').notNull(),
     startsAt: timestamp('starts_at', { withTimezone: true }).notNull().defaultNow(),
@@ -153,7 +160,9 @@ export const paymentOrders = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     tradeNo: text('trade_no').notNull(),
-    userId: uuid('user_id').notNull().references(() => billingAccounts.userId),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => authUser.id, { onDelete: 'cascade' }),
     kind: text('kind', { enum: ['topup', 'subscription'] }).notNull(),
     planId: uuid('plan_id').references(() => subscriptionPlans.id),
     /** 购买获得的额度（micros） */
@@ -195,7 +204,8 @@ export const redemptionCodes = pgTable(
     status: text('status', { enum: ['unused', 'used', 'disabled'] })
       .notNull()
       .default('unused'),
-    usedBy: uuid('used_by').references(() => billingAccounts.userId),
+    /** 核销人，指向 auth_user */
+    usedBy: uuid('used_by').references(() => authUser.id, { onDelete: 'set null' }),
     usedAt: timestamp('used_at', { withTimezone: true }),
     expiresAt: timestamp('expires_at', { withTimezone: true }),
     /** 批次备注，便于运营按批次导出与追溯 */

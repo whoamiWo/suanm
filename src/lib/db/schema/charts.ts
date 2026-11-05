@@ -9,8 +9,8 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { authUser } from './auth';
 
-import { billingAccounts } from './billing';
 
 /**
  * 出生档案。
@@ -23,7 +23,9 @@ export const birthProfiles = pgTable(
   'birth_profiles',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id').notNull().references(() => billingAccounts.userId),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => authUser.id, { onDelete: 'cascade' }),
     /** 用户自定义标签，如「本人」「客户 A」 */
     label: text('label').notNull().default(''),
     calendarType: text('calendar_type', { enum: ['solar', 'lunar'] })
@@ -58,7 +60,8 @@ export const chartResults = pgTable(
   'chart_results',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id').notNull().references(() => billingAccounts.userId),
+    /** 匿名排盘不入库，故可为空 */
+    userId: uuid('user_id').references(() => authUser.id, { onDelete: 'cascade' }),
     method: text('method').notNull(),
     /** 输入参数摘要，用于缓存命中 */
     inputHash: text('input_hash').notNull(),
@@ -87,7 +90,9 @@ export const reports = pgTable(
   'reports',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    userId: uuid('user_id').notNull().references(() => billingAccounts.userId),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => authUser.id, { onDelete: 'cascade' }),
     chartId: uuid('chart_id').notNull().references(() => chartResults.id),
     /** 报告档位 */
     tier: text('tier', { enum: ['summary', 'standard', 'detailed', 'deep'] })

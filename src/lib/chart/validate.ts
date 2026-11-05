@@ -61,3 +61,33 @@ export function parseBirthInput(raw: unknown): BirthInput {
   }
   return { ...v, birthHour: v.birthHour };
 }
+
+/**
+ * 占卜类方法的入参校验。
+ *
+ * 占卜不依赖出生时间，只需问事时间与所问之事。
+ */
+export const divinationInputSchema = z.object({
+  /** 问事日期 YYYY-MM-DD */
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, '日期格式应为 YYYY-MM-DD'),
+  /** 问事小时 0-23 */
+  hour: z.number().int().min(0).max(23),
+  /** 问事分钟 */
+  minute: z.number().int().min(0).max(59).optional(),
+  /** 所问之事 */
+  question: z.string().max(500).optional(),
+  timezone: z.string().max(64).optional(),
+});
+
+export function parseDivinationInput(raw: unknown): Record<string, unknown> {
+  const parsed = divinationInputSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new ChartError('VALIDATION', '问事信息校验失败', {
+      issues: parsed.error.issues.map((i) => ({
+        path: i.path.join('.'),
+        message: i.message,
+      })),
+    });
+  }
+  return parsed.data;
+}

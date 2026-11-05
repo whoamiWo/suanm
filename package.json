@@ -16,7 +16,7 @@
     "verify:bazi": "node scripts/verify-cross.mjs"
   },
   "dependencies": {
-    "@hookform/resolvers": "^7.0.2",
+    "@better-auth/drizzle-adapter": "1.7.17",
     "@soul-atelier/xuankong": "^0.3.0",
     "better-auth": "1.7.17",
     "bullmq": "^6.7.0",
@@ -28,13 +28,11 @@
     "pg": "^8.23.1",
     "react": "19.3.0",
     "react-dom": "19.3.0",
-    "react-hook-form": "^7.91.0",
-    "react-markdown": "^10.1.0",
-    "remark-gfm": "^4.0.1",
     "taibu-core": "4.0.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@better-auth/cli": "1.4.22",
     "@tailwindcss/turbopack": "^4",
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",

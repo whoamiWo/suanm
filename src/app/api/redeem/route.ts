@@ -1,5 +1,3 @@
-import { NextResponse } from 'next/server';
-import { withTransaction } from '@/lib/db/client';
 import { requireAuth } from '@/lib/auth';
 import { redeemCode, RedeemError } from '@/lib/billing/redeem';
 import { ok, fail } from '@/lib/api/response';

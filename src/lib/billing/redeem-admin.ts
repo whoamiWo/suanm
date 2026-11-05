@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { eq, inArray } from 'drizzle-orm';
 import { getDb } from '@/lib/db/client';
 import { redemptionCodes } from '@/lib/db/schema';

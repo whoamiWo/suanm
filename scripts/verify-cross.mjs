@@ -18,7 +18,11 @@ for (const c of cases) {
   const got = ['year','month','day','hour'].map(k => fp[k] ? fp[k].stem + fp[k].branch : '--').join(' ');
   const want = [ec.getYear(), ec.getMonth(), ec.getDay(), ec.getTime()].join(' ');
   const ok = got === want;
-  ok ? pass++ : fail++;
+  if (ok) {
+    pass++;
+  } else {
+    fail++;
+  }
   console.log(`${ok ? 'PASS' : 'FAIL'} ${c.y}-${c.m}-${c.d} ${c.h}:00 ${c.g}`);
   console.log(`   taibu: ${got}`);
   console.log(`   lunar: ${want}`);

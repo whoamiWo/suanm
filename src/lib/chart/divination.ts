@@ -16,7 +16,7 @@ import {
   toXiaoliurenText,
 } from 'taibu-core/xiaoliuren';
 import { calculateDailyAlmanac, toAlmanacJson, toAlmanacText } from 'taibu-core/almanac';
-import { ChartError, type ChartMethod, type ChartResult } from './types';
+import type { ChartResult } from './types';
 import { wrapError } from './bazi';
 
 /**
@@ -91,6 +91,21 @@ export interface AlmanacOptions {
   dayMaster?: string;
 }
 
+
+/**
+ * 构造含时间的 ISO 字符串。
+ *
+ * 梅花与六爻的上游要求 date 含时间（YYYY-MM-DDTHH:MM[:SS]），
+ * 而黄历/奇门只需日期。此处统一处理。
+ */
+function toIsoDateTime(date: string, hour = 0, minute = 0): string {
+  if (date.includes('T')) return date;
+  const d = date.length >= 10 ? date.slice(0, 10) : date;
+  const h = String(hour).padStart(2, '0');
+  const m = String(minute).padStart(2, '0');
+  return `${d}T${h}:${m}:00`;
+}
+
 /** 奇门遁甲 */
 export async function runQimen(options: QimenOptions): Promise<ChartResult> {
   try {
@@ -120,7 +135,7 @@ export async function runMeihua(options: MeihuaOptions): Promise<ChartResult> {
   try {
     const chart = await calculateMeihua({
       question: options.question ?? '',
-      date: options.date,
+      date: toIsoDateTime(options.date, options.hour, options.minute),
       method: options.method,
       count: options.count,
       text: options.text,
@@ -143,10 +158,15 @@ export async function runLiuyao(options: LiuyaoOptions): Promise<ChartResult> {
   try {
     const chart = await calculateLiuyao({
       question: options.question ?? '',
-      yongShenTargets: options.yongShenTargets ?? [],
+      // 上游要求至少一个分析目标，缺省时给出通用六亲组
+      yongShenTargets:
+        options.yongShenTargets && options.yongShenTargets.length > 0
+          ? options.yongShenTargets
+          : (['官鬼', '妻财', '子孙', '父母', '兄弟'] as const).slice(),
+
       method: options.method,
       yaoValues: options.yaoValues,
-      date: options.date,
+      date: toIsoDateTime(options.date, options.hour, options.minute),
       timezone: options.timezone,
       hexagramName: options.hexagramName,
       changedHexagramName: options.changedHexagramName,

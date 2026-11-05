@@ -58,7 +58,7 @@ export const METHODS: Record<string, MethodEntry> = {
       requiresBirth: false,
     },
     exec: (input, options) =>
-      runQimen({ ...(options ?? {}), ...input } as unknown as QimenOptions),
+      runQimen({ ...input, ...(options ?? {}) } as unknown as QimenOptions),
   },
   meihua: {
     method: {
@@ -68,7 +68,7 @@ export const METHODS: Record<string, MethodEntry> = {
       requiresBirth: false,
     },
     exec: (input, options) =>
-      runMeihua({ ...(options ?? {}), ...input } as unknown as MeihuaOptions),
+      runMeihua({ ...input, ...(options ?? {}) } as unknown as MeihuaOptions),
   },
   liuyao: {
     method: {
@@ -78,7 +78,7 @@ export const METHODS: Record<string, MethodEntry> = {
       requiresBirth: false,
     },
     exec: (input, options) =>
-      runLiuyao({ ...(options ?? {}), ...input } as unknown as LiuyaoOptions),
+      runLiuyao({ ...input, ...(options ?? {}) } as unknown as LiuyaoOptions),
   },
   daliuren: {
     method: {
@@ -88,7 +88,7 @@ export const METHODS: Record<string, MethodEntry> = {
       requiresBirth: false,
     },
     exec: (input, options) =>
-      runDaliuren({ ...(options ?? {}), ...input } as unknown as DaliurenOptions),
+      runDaliuren({ ...input, ...(options ?? {}) } as unknown as DaliurenOptions),
   },
   xiaoliuren: {
     method: {
@@ -98,7 +98,7 @@ export const METHODS: Record<string, MethodEntry> = {
       requiresBirth: false,
     },
     exec: (input, options) =>
-      runXiaoliuren({ ...(options ?? {}), ...input } as unknown as XiaoliurenOptions),
+      runXiaoliuren({ ...input, ...(options ?? {}) } as unknown as XiaoliurenOptions),
   },
   almanac: {
     method: {
@@ -108,7 +108,7 @@ export const METHODS: Record<string, MethodEntry> = {
       requiresBirth: false,
     },
     exec: (input, options) =>
-      runAlmanac({ ...(options ?? {}), ...input } as unknown as AlmanacOptions),
+      runAlmanac({ ...input, ...(options ?? {}) } as unknown as AlmanacOptions),
   },
 };
 

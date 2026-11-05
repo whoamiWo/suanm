@@ -26,50 +26,23 @@ function first(v: string | string[] | undefined): string | undefined {
   return v;
 }
 
-/** 从 query 解析出生信息或问事信息 */
-function parseInput(sp: Record<string, string | string[] | undefined>): (BirthInput & { extra?: any }) | null {
-  const method = first(sp.method) ?? '';
-  const meta = METHOD_MAP[method];
-  const isDivination = meta?.requiresBirth === false;
+/**
+ * 占卜类方法的占位输入。
+ *
+ * 占卜不依赖出生信息，但 registry 的统一签名要求提供 BirthInput，
+ * 故用不参与计算的占位值填充。
+ */
+const EMPTY_BIRTH_INPUT: BirthInput = {
+  birthYear: 2000,
+  birthMonth: 1,
+  birthDay: 1,
+  gender: 'male',
+};
 
-  // ─── 占卜类方法（qimen/meihua/liuyao/daliuren/xiaoliuren/almanac） ───
-  if (isDivination) {
-    const date = first(sp.date);
-    const hour = first(sp.hour);
-    const minute = first(sp.minute);
-    const question = first(sp.question);
-
-    if (!date || !hour) {
-      return null; // 必要参数缺失
-    }
-
-    // 组装 DivinationInput 所需的基础字段，再传给对应的 runQimen/runMeihua/...
-    const input: BirthInput = {
-      // 占卜类不使用出生四柱，但 BirthInput 是统一契约，这里填入默认值或占位
-      birthYear: Number(date.slice(0, 4)),
-      birthMonth: Number(date.slice(5, 7)),
-      birthDay: Number(date.slice(8, 10)),
-      gender: first(sp.g) === 'female' ? 'female' : 'male',
-    };
-
-    // 这里不直接返回 BirthInput，而是返回一个携带占卜专用字段的对象，
-    // 但为保持与 runChart(input) 接口兼容，我们把需要的信息放在 input 里，
-    // 并由运行时的六种方法函数自行从 options 或 input.extra 中取用。
-    // 为简化，这里直接返回带 extra 标记的 input，六种方法函数会从中读取问事信息。
-    return {
-      ...input,
-      // 通过 method 判断是哪种占卜，downstream 的 run* 函数会读取这些 extra 字段
-      // 统一放在 input.extra 里，避免改动 runBazi/runZiwei 等签名
-      extra: {
-        date,
-        hour: Number(hour),
-        minute: minute ? Number(minute) : undefined,
-        question,
-      },
-    };
-  }
-
-  // ─── 命理类方法（bazi/ziwei/...需要出生年月日） ───
+/**
+ * 从 query 解析出生信息（命理类方法）。
+ */
+function parseBirth(sp: Record<string, string | string[] | undefined>): BirthInput | null {
   const y = Number(first(sp.y));
   const m = Number(first(sp.m));
   const d = Number(first(sp.d));
@@ -80,7 +53,6 @@ function parseInput(sp: Record<string, string | string[] | undefined>): (BirthIn
   const gender = first(sp.g) === 'female' ? 'female' : 'male';
   const unknownHour = first(sp.uh) === '1';
   const hour = unknownHour ? undefined : Number(first(sp.h));
-  const minute = first(sp.min) ? Number(first(sp.min)) : undefined;
 
   const input: BirthInput = {
     birthYear: y,
@@ -91,15 +63,9 @@ function parseInput(sp: Record<string, string | string[] | undefined>): (BirthIn
   if (hour !== undefined && Number.isInteger(hour)) {
     input.birthHour = hour;
   }
-  if (minute !== undefined && Number.isInteger(minute)) {
+  const minute = Number(first(sp.min));
+  if (input.birthHour !== undefined && Number.isInteger(minute)) {
     input.birthMinute = minute;
-  }
-  const calendarType = first(sp.ct);
-  if (calendarType === 'lunar' || calendarType === 'solar') {
-    input.calendarType = calendarType;
-  }
-  if (first(sp.leap) === '1') {
-    input.isLeapMonth = true;
   }
   const lon = first(sp.lon);
   if (first(sp.ts) === '1' && lon) {
@@ -108,23 +74,39 @@ function parseInput(sp: Record<string, string | string[] | undefined>): (BirthIn
       input.longitude = longitude;
     }
   }
-  const birthPlace = first(sp.bp);
-  if (birthPlace) {
-    input.birthPlace = birthPlace;
-  }
-  const timezone = first(sp.tz);
-  if (timezone) {
-    input.timezone = timezone;
-  }
-  const dayBoundary = first(sp.db);
-  if (dayBoundary === 'midnight' || dayBoundary === 'zi') {
-    input.dayBoundary = dayBoundary;
-  }
-  const disambiguation = first(sp.dis);
-  if (disambiguation && ['reject', 'earlier', 'later', 'compatible'].includes(disambiguation)) {
-    input.disambiguation = disambiguation as BirthInput['disambiguation'];
-  }
+  const bp = first(sp.bp);
+  if (bp) input.birthPlace = bp;
+  const tz = first(sp.tz);
+  if (tz) input.timezone = tz;
+  const db = first(sp.db);
+  if (db === 'midnight' || db === 'zi') input.dayBoundary = db;
+  const ct = first(sp.ct);
+  if (ct === 'solar' || ct === 'lunar') input.calendarType = ct;
+  if (first(sp.leap) === '1') input.isLeapMonth = true;
   return input;
+}
+
+/**
+ * 从 query 解析问事信息（占卜类方法）。
+ *
+ * 占卜参数通过 options 传给 registry，避免污染 BirthInput 契约。
+ */
+function parseDivinationOptions(
+  sp: Record<string, string | string[] | undefined>,
+): Record<string, unknown> | null {
+  const date = first(sp.date);
+  const hour = first(sp.hour);
+  if (!date || !hour) return null;
+
+  const minute = Number(first(sp.minute));
+  const options: Record<string, unknown> = {
+    date,
+    hour: Number(hour),
+  };
+  if (Number.isInteger(minute)) options.minute = minute;
+  const question = first(sp.question);
+  if (question) options.question = question;
+  return options;
 }
 
 /** 生成页面标题 */
@@ -163,61 +145,34 @@ export async function generateMetadata({
   };
 }
 
-import { runQimen, runMeihua, runLiuyao, runDaliuren, runXiaoliuren, runAlmanac } from '@/lib/chart/divination';
-
 export default async function PaipanPage({ params, searchParams }: PageProps) {
   const { method } = await params;
   const sp = await searchParams;
   const meta = METHOD_MAP[method];
   if (!meta) notFound();
 
-  const input = parseInput(sp);
+  const isDivination = meta.requiresBirth === false;
+  const input = isDivination ? null : parseBirth(sp);
+  const divinationOptions = isDivination ? parseDivinationOptions(sp) : null;
+
   let result: { text: string; json: unknown; warnings?: string[] } | null = null;
   let errorMessage: string | null = null;
 
-  // 判断是否为占卜类（不需要出生时间）
-  const isDivination = input?.extra !== undefined;
+  // 占卜类需要问事时间，命理类需要出生信息；两者缺一不可
+  const missingInput = isDivination ? divinationOptions === null : input === null;
 
-  if (!isDivination && input) {
-    // 命理类：通过 registry 执行
+  if (!missingInput) {
     try {
-      const r = await runChart(method, input);
+      // 统一经 registry 调度：命理类传 input，占卜类传 options
+      const r = isDivination
+        ? await runChart(method, EMPTY_BIRTH_INPUT, divinationOptions ?? {})
+        : await runChart(method, input!, undefined);
       result = { text: r.text, json: r.json, warnings: r.warnings };
     } catch (err) {
       if (err instanceof ChartError) {
         errorMessage = err.message;
       } else {
-        errorMessage = '排盘失败，请检查输入信息';
-      }
-    }
-  } else if (isDivination && input) {
-    // 占卜类：直接调用对应的 run* 函数
-    try {
-      switch (method) {
-        case 'qimen':
-          result = await runQimen(input.extra);
-          break;
-        case 'meihua':
-          result = await runMeihua(input.extra);
-          break;
-        case 'liuyao':
-          result = await runLiuyao(input.extra);
-          break;
-        case 'daliuren':
-          result = await runDaliuren(input.extra);
-          break;
-        case 'xiaoliuren':
-          result = await runXiaoliuren(input.extra);
-          break;
-        case 'almanac':
-          result = await runAlmanac(input.extra);
-          break;
-      }
-    } catch (err) {
-      if (err instanceof ChartError) {
-        errorMessage = err.message;
-      } else {
-        errorMessage = '占卜失败，请检查输入信息';
+        errorMessage = isDivination ? '占卜失败，请检查输入信息' : '排盘失败，请检查输入信息';
       }
     }
   }
@@ -374,7 +329,6 @@ function MarkdownTable({ text }: { text: string }) {
     // 表格
     if (line.trim().startsWith('|') && lines[i + 1]?.trim().startsWith('|')) {
       const rows: string[][] = [];
-      const headerSep = lines[i + 1];
       i += 2;
       while (i < lines.length && lines[i].trim().startsWith('|')) {
         rows.push(

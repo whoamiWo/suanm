@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { ok, fail } from '@/lib/api/response';
 import { getDb } from '@/lib/db/client';

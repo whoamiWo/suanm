@@ -10,9 +10,10 @@
  */
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { getDb, getPool } from '@/lib/db/client';
 import {
+  authUser,
   billingAccounts,
   billingLedger,
   redemptionCodes,
@@ -25,13 +26,28 @@ import { redeemCode, RedeemError } from '@/lib/billing/redeem';
 import { consume, getBalance, InsufficientBalanceError } from '@/lib/billing/consume';
 import { creditsToMicros, microsToCredits, yuanToMicros } from '@/lib/billing/credits';
 
-const userId = randomUUID();
-/** 每个用例独立用户，避免额度相互影响 */
-const newUser = () => randomUUID();
+/**
+ * 创建真实用户。
+ *
+ * 计费表与业务表的 user_id 外键指向 auth_user，
+ * 因此测试用户必须先存在于 auth_user 中。
+ */
+async function newUser(): Promise<string> {
+  const id = randomUUID();
+  const db = getDb();
+  await db.insert(authUser).values({
+    id,
+    name: `test-${id.slice(0, 8)}`,
+    email: `${id}@test.local`,
+    emailVerified: true,
+  });
+  return id;
+}
 
 beforeAll(async () => {
   // 清理上次运行的残留，保证可重复执行（按外键依赖顺序删除）
   const db = getDb();
+  await db.execute(sql`DELETE FROM auth_user WHERE email LIKE '%@test.local'`);
   await db.delete(redemptionCodes).where(eq(redemptionCodes.code, 'TEST-BALANCE-001'));
   await db.delete(redemptionCodes).where(eq(redemptionCodes.code, 'TEST-PLAN-001'));
   await db.delete(redemptionCodes).where(eq(redemptionCodes.code, 'TEST-RACE-001'));
@@ -110,7 +126,7 @@ describe('代金卷换算', () => {
 
 describe('兑换码核销', () => {
   it('余额码可核销并写入流水', async () => {
-    const u = newUser();
+    const u = await newUser();
     const r = await redeemCode('TEST-BALANCE-001', u);
     expect(r.kind).toBe('balance');
     expect(r.amountMicros).toBe(yuanToMicros(10));
@@ -120,11 +136,11 @@ describe('兑换码核销', () => {
   });
 
   it('同一兑换码不可重复核销', async () => {
-    await expect(redeemCode('TEST-BALANCE-001', userId)).rejects.toThrow(RedeemError);
+    await expect(redeemCode('TEST-BALANCE-001', await newUser())).rejects.toThrow(RedeemError);
   });
 
   it('套餐码可开通订阅并发放额度', async () => {
-    const u = newUser();
+    const u = await newUser();
     const r = await redeemCode('TEST-PLAN-001', u);
     expect(r.kind).toBe('subscription');
     expect(r.subscriptionId).toBeTruthy();
@@ -134,7 +150,7 @@ describe('兑换码核销', () => {
   });
 
   it('不存在的兑换码报 NOT_FOUND', async () => {
-    await expect(redeemCode('NOT-EXIST-CODE', userId)).rejects.toMatchObject({
+    await expect(redeemCode('NOT-EXIST-CODE', await newUser())).rejects.toMatchObject({
       code: 'NOT_FOUND',
     });
   });
@@ -147,7 +163,7 @@ describe('兑换码核销', () => {
       amountMicros: yuanToMicros(5),
       status: 'unused',
     });
-    const u = newUser();
+    const u = await newUser();
     const results = await Promise.allSettled([
       redeemCode('TEST-RACE-001', u),
       redeemCode('TEST-RACE-001', u),
@@ -162,7 +178,7 @@ describe('兑换码核销', () => {
 
 describe('额度扣减', () => {
   it('订阅额度优先扣，够用时不扣钱包', async () => {
-    const u = newUser();
+    const u = await newUser();
     await redeemCode('TEST-PLAN-A', u);
     const before = await getBalance(u);
     await consume(u, creditsToMicros(10), {
@@ -177,7 +193,7 @@ describe('额度扣减', () => {
   });
 
   it('同一幂等键只扣一次', async () => {
-    const u = newUser();
+    const u = await newUser();
     await redeemCode('TEST-PLAN-B', u);
     const before = await getBalance(u);
     await consume(u, creditsToMicros(5), { idempotencyKey: `consume-idem-${u}` });
@@ -188,7 +204,7 @@ describe('额度扣减', () => {
 
   it('完全无可用额度时抛错且不写流水', async () => {
     const db = getDb();
-    const emptyUser = randomUUID();
+    const emptyUser = await newUser();
     const beforeCount = (await db.select().from(billingLedger)).length;
     await expect(
       consume(emptyUser, creditsToMicros(1), {
@@ -201,7 +217,7 @@ describe('额度扣减', () => {
 
   it('有可用额度时钱包可被扣成负数（不阻断服务）', async () => {
     const db = getDb();
-    const emptyUser = randomUUID();
+    const emptyUser = await newUser();
     await db.insert(billingAccounts).values({
       userId: emptyUser,
       balanceMicros: creditsToMicros(1),
